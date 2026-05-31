@@ -234,7 +234,7 @@ final todayCompletionProvider = Provider<double>((ref) {
   final habits = ref.watch(habitsProvider);
   final logs = ref.watch(logsProvider);
   if (habits.isEmpty) return 0;
-  final done = logs.completedTodayCount(habits);
+  final done = habits.where((h) => logs.any((l) => l.habitId == h.id && l.completed && l.isToday)).length;
   return done / habits.length;
 });
 

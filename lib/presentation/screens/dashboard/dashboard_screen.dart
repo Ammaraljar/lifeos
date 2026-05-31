@@ -13,79 +13,69 @@ class DashboardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = AppLocalizations.of(context)!;
     final locale = ref.watch(localeProvider);
     final isDark = ref.watch(darkModeProvider);
     final habits = ref.watch(habitsProvider);
-    final logs = ref.watch(logsProvider);
+    ref.watch(logsProvider); // rebuild on log changes
+    final logsN = ref.read(logsProvider.notifier);
     final completion = ref.watch(todayCompletionProvider);
     final isAr = locale == 'ar';
 
     final now = DateTime.now();
     final prayers = habits.where((h) => h.type == HabitType.prayer).toList();
-    final prayersToday = logs.prayersToday(habits);
-    final quranPages = logs.annualQuranPages(habits);
-    final englishHours = logs.annualEnglishHours(habits);
+    final prayersToday = logsN.prayersToday(habits);
+    final quranPages = logsN.annualQuranPages(habits);
+    final englishHours = logsN.annualEnglishHours(habits);
 
     return Scaffold(
       body: CustomScrollView(
         slivers: [
-          // Header
           SliverAppBar(
             expandedHeight: 160,
             floating: false,
             pinned: true,
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [
-                      const Color(0xFF1A237E),
-                      AppColors.highlight.withOpacity(0.8),
-                    ],
+                    colors: [Color(0xFF1A237E), AppColors.highlight],
                   ),
                 ),
                 child: SafeArea(
                   child: Padding(
                     padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  isAr
-                                      ? _arabicGreeting()
-                                      : _englishGreeting(),
-                                  style: const TextStyle(color: Colors.white70, fontSize: 14),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  isAr
-                                      ? DateFormat('EEEE، d MMMM yyyy', 'ar').format(now)
-                                      : DateFormat('EEEE, MMMM d').format(now),
-                                  style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700),
-                                ),
-                              ],
+                            Text(
+                              isAr ? _arabicGreeting() : _englishGreeting(),
+                              style: const TextStyle(color: Colors.white70, fontSize: 14),
                             ),
-                            CircularPercentIndicator(
-                              radius: 36,
-                              lineWidth: 6,
-                              percent: completion,
-                              center: Text(
-                                '${(completion * 100).round()}%',
-                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13),
-                              ),
-                              progressColor: AppColors.green,
-                              backgroundColor: Colors.white24,
+                            const SizedBox(height: 4),
+                            Text(
+                              isAr
+                                  ? DateFormat('EEEE، d MMMM', 'ar').format(now)
+                                  : DateFormat('EEEE, MMMM d').format(now),
+                              style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700),
                             ),
                           ],
+                        ),
+                        CircularPercentIndicator(
+                          radius: 36,
+                          lineWidth: 6,
+                          percent: completion,
+                          center: Text(
+                            '${(completion * 100).round()}%',
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13),
+                          ),
+                          progressColor: AppColors.green,
+                          backgroundColor: Colors.white24,
                         ),
                       ],
                     ),
@@ -99,65 +89,48 @@ class DashboardScreen extends ConsumerWidget {
             padding: const EdgeInsets.all(16),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
-
-                // ===== PRAYERS STATUS =====
-                _SectionTitle(isAr ? 'الصلوات — ${prayersToday}/5' : 'Prayers — $prayersToday/5'),
+                _SectionTitle(isAr ? 'الصلوات — $prayersToday/5' : 'Prayers — $prayersToday/5'),
                 const SizedBox(height: 10),
-                _PrayersRow(prayers: prayers, logs: logs),
+                _PrayersRow(prayers: prayers),
                 const SizedBox(height: 20),
 
-                // ===== TODAY'S HABITS =====
-                _SectionTitle(l10n.todayHabits),
+                _SectionTitle(isAr ? 'عادات اليوم' : "Today's Habits"),
                 const SizedBox(height: 10),
                 ...habits.where((h) => h.type != HabitType.prayer).map((h) =>
-                  _HabitTile(habit: h, logs: logs, locale: locale, isDark: isDark)
-                ),
+                    _HabitTile(habit: h, locale: locale, isDark: isDark)),
                 const SizedBox(height: 20),
 
-                // ===== ANNUAL STATS =====
-                _SectionTitle(isAr ? 'إحصائيات هذا العام' : 'This Year\'s Stats'),
+                _SectionTitle(isAr ? 'إحصائيات هذا العام' : "This Year's Stats"),
                 const SizedBox(height: 10),
                 Row(children: [
                   Expanded(child: _StatCard(
-                    icon: '📖',
-                    label: isAr ? 'صفحات القرآن' : 'Quran Pages',
-                    value: '$quranPages',
-                    target: '${AppConstants.quranPagesPerYear}',
+                    icon: '📖', label: isAr ? 'صفحات القرآن' : 'Quran Pages',
+                    value: '$quranPages', target: '${AppConstants.quranPagesPerYear}',
                     color: AppColors.spiritual,
-                    progress: quranPages / AppConstants.quranPagesPerYear,
-                    isDark: isDark,
+                    progress: quranPages / AppConstants.quranPagesPerYear, isDark: isDark,
                   )),
                   const SizedBox(width: 12),
                   Expanded(child: _StatCard(
-                    icon: '🇬🇧',
-                    label: isAr ? 'ساعات الإنجليزية' : 'English Hours',
-                    value: '${englishHours.round()}',
-                    target: '500',
+                    icon: '🇬🇧', label: isAr ? 'ساعات الإنجليزية' : 'English Hours',
+                    value: '${englishHours.round()}', target: '500',
                     color: AppColors.english,
-                    progress: englishHours / 500,
-                    isDark: isDark,
+                    progress: englishHours / 500, isDark: isDark,
                   )),
                 ]),
                 const SizedBox(height: 12),
                 Row(children: [
                   Expanded(child: _StatCard(
-                    icon: '🙏',
-                    label: isAr ? 'انتظام الصلاة' : 'Prayer Consistency',
-                    value: '${(logs.annualPrayerConsistency(habits) * 100).round()}%',
-                    target: '90%',
+                    icon: '🙏', label: isAr ? 'انتظام الصلاة' : 'Prayer Consistency',
+                    value: '${(logsN.annualPrayerConsistency(habits) * 100).round()}%', target: '90%',
                     color: AppColors.spiritual,
-                    progress: logs.annualPrayerConsistency(habits),
-                    isDark: isDark,
+                    progress: logsN.annualPrayerConsistency(habits), isDark: isDark,
                   )),
                   const SizedBox(width: 12),
                   Expanded(child: _StatCard(
-                    icon: '💪',
-                    label: isAr ? 'أيام التمرين' : 'Gym Days',
-                    value: '${_gymDays(habits, logs)}',
-                    target: '200',
+                    icon: '💪', label: isAr ? 'أيام التمرين' : 'Gym Days',
+                    value: '${_gymDays(habits, logsN)}', target: '200',
                     color: AppColors.fitness,
-                    progress: _gymDays(habits, logs) / 200,
-                    isDark: isDark,
+                    progress: _gymDays(habits, logsN) / 200, isDark: isDark,
                   )),
                 ]),
                 const SizedBox(height: 30),
@@ -177,41 +150,39 @@ class DashboardScreen extends ConsumerWidget {
   }
 
   String _arabicGreeting() {
-    final hour = DateTime.now().hour;
-    if (hour < 12) return 'صباح الخير 🌅';
-    if (hour < 17) return 'مساء الخير ☀️';
+    final h = DateTime.now().hour;
+    if (h < 12) return 'صباح الخير 🌅';
+    if (h < 17) return 'مساء الخير ☀️';
     return 'مساء النور 🌙';
   }
 
   String _englishGreeting() {
-    final hour = DateTime.now().hour;
-    if (hour < 12) return 'Good Morning 🌅';
-    if (hour < 17) return 'Good Afternoon ☀️';
+    final h = DateTime.now().hour;
+    if (h < 12) return 'Good Morning 🌅';
+    if (h < 17) return 'Good Afternoon ☀️';
     return 'Good Evening 🌙';
   }
 }
 
 class _PrayersRow extends ConsumerWidget {
   final List<HabitModel> prayers;
-  final LogsNotifier logs;
-  const _PrayersRow({required this.prayers, required this.logs});
+  const _PrayersRow({required this.prayers});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(logsProvider);
+    final logsN = ref.read(logsProvider.notifier);
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceAround,
       children: prayers.map((p) {
-        final done = logs.isCompletedToday(p.id);
+        final done = logsN.isCompletedToday(p.id);
         return GestureDetector(
           onTap: () => ref.read(logsProvider.notifier).toggleToday(p.id),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 300),
             width: 58, height: 72,
             decoration: BoxDecoration(
-              gradient: done
-                  ? LinearGradient(colors: [AppColors.spiritual, AppColors.spiritual.withOpacity(0.7)], begin: Alignment.topLeft, end: Alignment.bottomRight)
-                  : null,
-              color: done ? null : Theme.of(context).colorScheme.surface,
+              color: done ? AppColors.spiritual : Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: done ? AppColors.spiritual : AppColors.textMuted.withOpacity(0.3), width: 1.5),
             ),
@@ -220,11 +191,9 @@ class _PrayersRow extends ConsumerWidget {
               children: [
                 Text(p.icon, style: const TextStyle(fontSize: 22)),
                 const SizedBox(height: 4),
-                Text(
-                  p.nameAr.replaceAll('صلاة ', ''),
+                Text(p.nameAr.replaceAll('صلاة ', ''),
                   style: TextStyle(fontSize: 9, color: done ? Colors.white : AppColors.textMuted, fontWeight: FontWeight.w600),
-                  textAlign: TextAlign.center,
-                ),
+                  textAlign: TextAlign.center),
                 if (done) const Icon(Icons.check_circle_rounded, color: Colors.white, size: 12),
               ],
             ),
@@ -237,15 +206,16 @@ class _PrayersRow extends ConsumerWidget {
 
 class _HabitTile extends ConsumerWidget {
   final HabitModel habit;
-  final LogsNotifier logs;
   final String locale;
   final bool isDark;
-  const _HabitTile({required this.habit, required this.logs, required this.locale, required this.isDark});
+  const _HabitTile({required this.habit, required this.locale, required this.isDark});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final done = logs.isCompletedToday(habit.id);
-    final streak = logs.streakFor(habit.id);
+    ref.watch(logsProvider);
+    final logsN = ref.read(logsProvider.notifier);
+    final done = logsN.isCompletedToday(habit.id);
+    final streak = logsN.streakFor(habit.id);
     final color = Color(habit.colorValue);
 
     return GestureDetector(
@@ -263,10 +233,7 @@ class _HabitTile extends ConsumerWidget {
         child: Row(children: [
           Container(
             width: 44, height: 44,
-            decoration: BoxDecoration(
-              color: done ? color : color.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(12),
-            ),
+            decoration: BoxDecoration(color: done ? color : color.withOpacity(0.15), borderRadius: BorderRadius.circular(12)),
             child: Center(child: Text(habit.icon, style: const TextStyle(fontSize: 22))),
           ),
           const SizedBox(width: 14),
@@ -274,22 +241,18 @@ class _HabitTile extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(habit.getName(locale),
-                style: TextStyle(
-                  fontWeight: FontWeight.w600, fontSize: 15,
-                  color: done ? color : (isDark ? AppColors.textPrimary : AppColors.primary),
-                  decoration: done ? TextDecoration.none : null,
-                ),
-              ),
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15,
+                  color: done ? color : (isDark ? AppColors.textPrimary : AppColors.primary))),
               const SizedBox(height: 3),
               Row(children: [
                 if (habit.scheduledTime != null) ...[
-                  Icon(Icons.access_time_rounded, size: 11, color: AppColors.textMuted),
+                  const Icon(Icons.access_time_rounded, size: 11, color: AppColors.textMuted),
                   const SizedBox(width: 3),
                   Text(habit.scheduledTime!, style: const TextStyle(color: AppColors.textMuted, fontSize: 11)),
                   const SizedBox(width: 10),
                 ],
                 if (habit.targetValue != null) ...[
-                  Icon(Icons.track_changes_rounded, size: 11, color: AppColors.textMuted),
+                  const Icon(Icons.track_changes_rounded, size: 11, color: AppColors.textMuted),
                   const SizedBox(width: 3),
                   Text('${habit.targetValue} ${habit.targetUnit ?? ""}',
                     style: const TextStyle(color: AppColors.textMuted, fontSize: 11)),
@@ -307,8 +270,8 @@ class _HabitTile extends ConsumerWidget {
             duration: const Duration(milliseconds: 300),
             width: 30, height: 30,
             decoration: BoxDecoration(
-              color: done ? color : Colors.transparent,
               shape: BoxShape.circle,
+              color: done ? color : Colors.transparent,
               border: Border.all(color: done ? color : AppColors.textMuted.withOpacity(0.4), width: 2),
             ),
             child: done ? const Icon(Icons.check_rounded, color: Colors.white, size: 16) : null,

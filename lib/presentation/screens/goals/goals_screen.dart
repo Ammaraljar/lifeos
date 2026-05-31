@@ -17,10 +17,12 @@ class GoalsScreen extends ConsumerWidget {
     final isDark = ref.watch(darkModeProvider);
     final habits = ref.watch(habitsProvider);
     final logs = ref.watch(logsProvider);
+    final logsN = ref.read(logsProvider.notifier);
     final isAr = locale == 'ar';
 
     // Build goal data from habits
-    final goalData = _buildGoalData(habits, logs, isAr, l10n);
+    final logsN = ref.read(logsProvider.notifier);
+    final goalData = _buildGoalData(habits, logsN, isAr, l10n);
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.annualGoals)),
@@ -39,7 +41,7 @@ class GoalsScreen extends ConsumerWidget {
     );
   }
 
-  List<_GoalData> _buildGoalData(List<HabitModel> habits, LogsNotifier logs, bool isAr, AppLocalizations l10n) {
+  List<_GoalData> _buildGoalData(List<HabitModel> habits, LogsNotifier logsN, bool isAr, AppLocalizations l10n) {
     final prayerConsistency = logs.annualPrayerConsistency(habits);
     final quranPages = logs.annualQuranPages(habits);
     final englishHours = logs.annualEnglishHours(habits);

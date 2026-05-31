@@ -16,7 +16,8 @@ class HabitsScreen extends ConsumerWidget {
     final locale = ref.watch(localeProvider);
     final isDark = ref.watch(darkModeProvider);
     final habits = ref.watch(habitsProvider);
-    final logs = ref.watch(logsProvider);
+    ref.watch(logsProvider);
+    final logsN = ref.read(logsProvider.notifier);
     final isAr = locale == 'ar';
 
     final categories = [
@@ -28,7 +29,7 @@ class HabitsScreen extends ConsumerWidget {
       (HabitCategory.knowledge, l10n.knowledge, AppColors.knowledge, '📚'),
     ];
 
-    final done = logs.completedTodayCount(habits);
+    final done = logsN.completedTodayCount(habits);
     final total = habits.length;
 
     return Scaffold(
@@ -38,14 +39,13 @@ class HabitsScreen extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.only(right: 16),
             child: Center(child: Text('$done/$total',
-              style: TextStyle(color: AppColors.highlight, fontWeight: FontWeight.w700, fontSize: 16))),
+              style: const TextStyle(color: AppColors.highlight, fontWeight: FontWeight.w700, fontSize: 16))),
           ),
         ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Date header
           Container(
             padding: const EdgeInsets.all(16),
             margin: const EdgeInsets.only(bottom: 20),
@@ -72,23 +72,14 @@ class HabitsScreen extends ConsumerWidget {
               ),
             ]),
           ),
-
-          // Groups
           ...categories.map((cat) {
             final catHabits = habits.where((h) => h.category == cat.$1).toList();
             if (catHabits.isEmpty) return const SizedBox.shrink();
-            final catDone = catHabits.where((h) => logs.isCompletedToday(h.id)).length;
-
+            final catDone = catHabits.where((h) => logsN.isCompletedToday(h.id)).length;
             return _CategoryGroup(
-              label: cat.$2,
-              emoji: cat.$4,
-              color: cat.$3,
-              habits: catHabits,
-              done: catDone,
-              total: catHabits.length,
-              logs: logs,
-              locale: locale,
-              isDark: isDark,
+              label: cat.$2, emoji: cat.$4, color: cat.$3,
+              habits: catHabits, done: catDone, total: catHabits.length,
+              locale: locale, isDark: isDark,
             );
           }),
           const SizedBox(height: 20),
@@ -103,19 +94,17 @@ class _CategoryGroup extends ConsumerWidget {
   final Color color;
   final List<HabitModel> habits;
   final int done, total;
-  final LogsNotifier logs;
   final bool isDark;
 
   const _CategoryGroup({
     required this.label, required this.emoji, required this.color,
     required this.habits, required this.done, required this.total,
-    required this.logs, required this.locale, required this.isDark,
+    required this.locale, required this.isDark,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final allDone = done == total;
-
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -125,7 +114,6 @@ class _CategoryGroup extends ConsumerWidget {
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
       ),
       child: Column(children: [
-        // Header
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
@@ -136,7 +124,8 @@ class _CategoryGroup extends ConsumerWidget {
             Text(emoji, style: const TextStyle(fontSize: 20)),
             const SizedBox(width: 10),
             Expanded(child: Text(label,
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: isDark ? AppColors.textPrimary : AppColors.primary))),
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14,
+                color: isDark ? AppColors.textPrimary : AppColors.primary))),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
@@ -144,15 +133,11 @@ class _CategoryGroup extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text('$done/$total',
-                style: TextStyle(
-                  color: allDone ? Colors.white : color,
-                  fontWeight: FontWeight.w700, fontSize: 12,
-                )),
+                style: TextStyle(color: allDone ? Colors.white : color, fontWeight: FontWeight.w700, fontSize: 12)),
             ),
           ]),
         ),
-        // Habits
-        ...habits.map((h) => _HabitRow(habit: h, logs: logs, locale: locale, color: color, isDark: isDark)),
+        ...habits.map((h) => _HabitRow(habit: h, locale: locale, color: color, isDark: isDark)),
       ]),
     );
   }
@@ -160,16 +145,17 @@ class _CategoryGroup extends ConsumerWidget {
 
 class _HabitRow extends ConsumerWidget {
   final HabitModel habit;
-  final LogsNotifier logs;
   final String locale;
   final Color color;
   final bool isDark;
-  const _HabitRow({required this.habit, required this.logs, required this.locale, required this.color, required this.isDark});
+  const _HabitRow({required this.habit, required this.locale, required this.color, required this.isDark});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final done = logs.isCompletedToday(habit.id);
-    final streak = logs.streakFor(habit.id);
+    ref.watch(logsProvider);
+    final logsN = ref.read(logsProvider.notifier);
+    final done = logsN.isCompletedToday(habit.id);
+    final streak = logsN.streakFor(habit.id);
 
     return GestureDetector(
       onTap: () => ref.read(logsProvider.notifier).toggleToday(habit.id),
@@ -187,12 +173,8 @@ class _HabitRow extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(habit.getName(locale),
-                style: TextStyle(
-                  fontSize: 14, fontWeight: FontWeight.w600,
-                  color: done ? color : (isDark ? AppColors.textPrimary : AppColors.primary),
-                )),
-              if (habit.scheduledTime != null || habit.targetValue != null)
-                const SizedBox(height: 2),
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600,
+                  color: done ? color : (isDark ? AppColors.textPrimary : AppColors.primary))),
               Row(children: [
                 if (habit.scheduledTime != null)
                   Text('⏰ ${habit.scheduledTime}', style: const TextStyle(color: AppColors.textMuted, fontSize: 11)),
